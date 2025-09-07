@@ -28,27 +28,53 @@
                 <div id="scannerSection">
                     <h2>Scan QR Code</h2>
                     <p style="color: rgba(255, 255, 255, 0.8); margin-bottom: 2rem;">
-                        Point your camera at the QR code displayed on the smart dustbin
+                        Multiple ways to scan QR codes from smart dustbins
                     </p>
 
-                    <div id="qr-reader" style="display: none;"></div>
+                    <!-- Camera Scanner Area -->
+                    <div id="camera-scanner" style="display: none; margin-bottom: 2rem;">
+                        <div id="qr-reader" style="border-radius: 15px; overflow: hidden; margin: 1rem 0;"></div>
+                        <div style="text-align: center; margin-top: 1rem;">
+                            <button id="stopScanBtn" class="btn btn-secondary" style="display: none;" onclick="stopCamera()">
+                                <i class="fas fa-stop"></i>
+                                Stop Camera
+                            </button>
+                        </div>
+                    </div>
 
-                    <button id="startScanBtn" class="btn">
-                        <i class="fas fa-camera"></i>
-                        Start Camera Scanner
-                    </button>
+                    <!-- Scan Options -->
+                    <div id="scan-options" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-bottom: 2rem;">
+                        <button id="startCameraBtn" class="btn" onclick="startCameraScanning()">
+                            <i class="fas fa-camera"></i>
+                            Camera Scanner
+                        </button>
 
+                        <button onclick="uploadQRImage()" class="btn btn-secondary">
+                            <i class="fas fa-upload"></i>
+                            Upload QR Image
+                        </button>
+
+                        <button onclick="manualQRInput()" class="btn btn-secondary">
+                            <i class="fas fa-keyboard"></i>
+                            Manual Input
+                        </button>
+                    </div>
+
+                    <!-- Demo QR Codes -->
                     <div style="margin-top: 2rem;">
                         <h4 style="margin-bottom: 1rem;">Demo QR Codes (for testing):</h4>
                         <div class="demo-qr-grid">
                             <button class="demo-qr-btn" onclick="simulateQRScan('USR1234|Organic|5.0kg|2.0kg|92%|2025-09-07|BIN001')">
-                                Organic Waste - 5kg
+                                Organic Waste - 5kg<br>
+                                <small>USR1234 → +24 credits</small>
                             </button>
                             <button class="demo-qr-btn" onclick="simulateQRScan('USR5678|Plastic|3.0kg|--|88%|2025-09-07|BIN002')">
-                                Plastic Waste - 3kg
+                                Plastic Waste - 3kg<br>
+                                <small>USR5678 → +18 credits</small>
                             </button>
                             <button class="demo-qr-btn" onclick="simulateQRScan('USR9101|Paper|2.5kg|--|95%|2025-09-07|BIN003')">
-                                Paper Waste - 2.5kg
+                                Paper Waste - 2.5kg<br>
+                                <small>USR9101 → +8 credits</small>
                             </button>
                         </div>
                     </div>
@@ -120,184 +146,252 @@
         </main>
     </div>
 
-
     <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
-<script src="../assets/js/common.js"></script>
-<script>
-    let html5QrcodeScanner;
-    let currentWasteData = null;
+    <script src="../assets/js/common.js"></script>
+    <script>
+        let html5QrCode = null;
+        let currentWasteData = null;
+        let isScanning = false;
 
-    // Load worker info
-    window.addEventListener('load', function() {
-        const currentUser = app.getCurrentUser();
-        if (!currentUser || currentUser.type !== 'worker') {
-            window.location.href = 'index.html';
-            return;
-        }
-
-        document.getElementById('workerInfo').innerHTML = `
-            <h3>Welcome, ${currentUser.name}</h3>
-            <p style="color: rgba(255, 255, 255, 0.8);">
-                Worker ID: ${currentUser.id} | Area: ${currentUser.area}
-            </p>
-        `;
-    });
-
-    // Start QR Scanner
-    document.getElementById('startScanBtn').addEventListener('click', function() {
-        startQRScanner();
-    });
-
-    function startQRScanner() {
-        const qrReaderDiv = document.getElementById('qr-reader');
-        qrReaderDiv.style.display = 'block';
-        document.getElementById('startScanBtn').style.display = 'none';
-
-        html5QrcodeScanner = new Html5QrcodeScanner(
-            "qr-reader",
-            {
-                fps: 10,
-                qrbox: { width: 250, height: 250 },
-                rememberLastUsedCamera: true,
-                supportedScanTypes: [Html5QrcodeScanType.SCAN_TYPE_CAMERA, Html5QrcodeScanType.SCAN_TYPE_FILE]
+        // Load worker info
+        window.addEventListener('load', function() {
+            const currentUser = app.getCurrentUser();
+            if (!currentUser || currentUser.type !== 'worker') {
+                window.location.href = 'index.html';
+                return;
             }
-        );
 
-        html5QrcodeScanner.render(onScanSuccess, onScanFailure);
-    }
+            document.getElementById('workerInfo').innerHTML = `
+                <h3>Welcome, ${currentUser.name}</h3>
+                <p style="color: rgba(255, 255, 255, 0.8);">
+                    Worker ID: ${currentUser.id} | Area: ${currentUser.area}
+                </p>
+            `;
+        });
 
-    function onScanSuccess(decodedText, decodedResult) {
-        html5QrcodeScanner.clear();
-        processScannedData(decodedText);
-    }
+        // 🚀 FIXED: Start Camera Scanning with Proper Configuration
+        async function startCameraScanning() {
+            if (isScanning) return;
 
-    function onScanFailure(error) {
-        // Handle scan failure - usually just ignore
-    }
+            console.log("🔥 Starting camera scanning...");
 
-    // 🚀 MISSING FUNCTION: Simulate QR Scan (for demo buttons)
-    function simulateQRScan(qrData) {
-        processScannedData(qrData);
-    }
+            try {
+                // Test camera permission first
+                const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                stream.getTracks().forEach(track => track.stop()); // Stop test stream
 
-    // 🚀 NEW: Manual QR Input
-    function manualQRInput() {
-        const manualData = prompt("Enter QR data manually:\n\nFormat: USER_ID|WASTE_TYPE|WEIGHT|COMPOST|ACCURACY|DATE|BIN_ID\n\nExample: USR1234|Organic|5.0kg|2.0kg|92%|2025-09-07|BIN001");
-        if (manualData && manualData.trim()) {
-            processScannedData(manualData.trim());
-        }
-    }
+                // Show camera area
+                document.getElementById('camera-scanner').style.display = 'block';
+                document.getElementById('scan-options').style.display = 'none';
 
-    // 🚀 NEW: QR Image Upload Function
-    function uploadQRImage() {
-        const input = document.createElement('input');
-        input.type = 'file';
-        input.accept = 'image/*';
-        input.onchange = function(event) {
-            const file = event.target.files[0];
-            if (file) {
-                const html5QrCode = new Html5Qrcode("qr-reader");
+                // Initialize scanner with proper configuration
+                html5QrCode = new Html5Qrcode("qr-reader");
 
-                // Show processing message
-                app.showToast('Processing uploaded image...', 'success');
+                // Start with back camera (preferred for QR scanning)
+                const cameraConfig = {
+                    fps: 10,
+                    qrbox: { width: 300, height: 300 },
+                    aspectRatio: 1.0
+                };
 
-                html5QrCode.scanFile(file, true)
-                    .then(decodedText => {
-                        processScannedData(decodedText);
-                        app.showToast('QR code detected from image!');
-                    })
-                    .catch(error => {
-                        console.error('QR scan from file failed:', error);
-                        app.showToast('Could not detect QR code from image. Try manual input.', 'error');
-                    });
+                await html5QrCode.start(
+                    { facingMode: "environment" }, // Back camera
+                    cameraConfig,
+                    onScanSuccess,
+                    onScanFailure
+                );
+
+                isScanning = true;
+                document.getElementById('stopScanBtn').style.display = 'inline-flex';
+                app.showToast("Camera started! Point at QR code to scan.");
+
+            } catch (error) {
+                console.error("Camera start failed:", error);
+
+                if (error.name === 'NotAllowedError') {
+                    app.showToast("Camera permission denied. Please enable camera access.", 'error');
+                } else if (error.name === 'NotFoundError') {
+                    app.showToast("No camera found on this device.", 'error');
+                } else {
+                    app.showToast("Camera failed to start: " + error.message, 'error');
+                }
+
+                // Reset UI on error
+                document.getElementById('camera-scanner').style.display = 'none';
+                document.getElementById('scan-options').style.display = 'grid';
             }
-        };
-        input.click();
-    }
-
-    function processScannedData(qrData) {
-        const wasteData = app.processQRData(qrData);
-
-        if (!wasteData) {
-            app.showToast('Invalid QR code format. Expected: USER_ID|WASTE_TYPE|WEIGHT|COMPOST|ACCURACY|DATE|BIN_ID', 'error');
-            return;
         }
 
-        currentWasteData = wasteData;
+        // Stop Camera
+        async function stopCamera() {
+            if (!html5QrCode || !isScanning) return;
 
-        // Populate form
-        document.getElementById('userId').value = wasteData.userId;
-        document.getElementById('wasteType').value = wasteData.wasteType;
-        document.getElementById('weight').value = wasteData.weight;
-        document.getElementById('compostYield').value = wasteData.compostYield;
-        document.getElementById('accuracy').value = wasteData.accuracy;
-        document.getElementById('binId').value = wasteData.binId;
+            try {
+                await html5QrCode.stop();
+                html5QrCode = null;
+                isScanning = false;
 
-        // Calculate credits
-        const credits = app.calculateCredits(wasteData);
-        document.getElementById('creditsAmount').textContent = credits;
+                document.getElementById('camera-scanner').style.display = 'none';
+                document.getElementById('scan-options').style.display = 'grid';
+                document.getElementById('stopScanBtn').style.display = 'none';
 
-        // Show form
-        document.getElementById('scannerSection').style.display = 'none';
-        document.getElementById('dataForm').style.display = 'block';
-
-        app.showToast('QR Code scanned successfully!');
-    }
-
-    // Process waste collection
-    document.getElementById('wasteForm').addEventListener('submit', async function(e) {
-        e.preventDefault();
-
-        if (!currentWasteData) {
-            app.showToast('No waste data to process', 'error');
-            return;
-        }
-
-        // Show processing indicator
-        const submitBtn = document.querySelector('#wasteForm button[type="submit"]');
-        const originalText = submitBtn.innerHTML;
-        submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing...';
-        submitBtn.disabled = true;
-
-        try {
-            const credits = app.calculateCredits(currentWasteData);
-            const result = await app.addTransaction(currentWasteData.userId, currentWasteData, credits);
-
-            if (result.success) {
-                // Store success data for success page
-                localStorage.setItem('lastTransaction', JSON.stringify({
-                    ...result.transaction,
-                    userName: result.user.name,
-                    newBalance: result.user.credits
-                }));
-
-                app.showToast(result.message);
-
-                setTimeout(() => {
-                    window.location.href = 'success.html';
-                }, 1500);
-            } else {
-                app.showToast(result.message, 'error');
+                app.showToast("Camera stopped.");
+            } catch (error) {
+                console.error("Error stopping camera:", error);
             }
-        } catch (error) {
-            console.error('Processing error:', error);
-            app.showToast('Processing failed: ' + error.message, 'error');
         }
 
-        // Reset button
-        submitBtn.innerHTML = originalText;
-        submitBtn.disabled = false;
-    });
+        // Scan Success Handler
+        function onScanSuccess(decodedText, decodedResult) {
+            console.log("🔥 QR Code scanned:", decodedText);
 
-    function resetScanner() {
-        document.getElementById('scannerSection').style.display = 'block';
-        document.getElementById('dataForm').style.display = 'none';
-        document.getElementById('qr-reader').style.display = 'none';
-        document.getElementById('startScanBtn').style.display = 'inline-flex';
-        currentWasteData = null;
-    }
-</script>
+            // Stop camera immediately after successful scan
+            stopCamera();
 
+            // Process the scanned data
+            processScannedData(decodedText);
+        }
+
+        // Scan Failure Handler
+        function onScanFailure(error) {
+            // Don't log every scan failure - too noisy
+            // Just continue scanning
+        }
+
+        // 🚀 Simulate QR Scan (for demo buttons)
+        function simulateQRScan(qrData) {
+            processScannedData(qrData);
+        }
+
+        // 🚀 Manual QR Input
+        function manualQRInput() {
+            const manualData = prompt("Enter QR data manually:\n\nFormat: USER_ID|WASTE_TYPE|WEIGHT|COMPOST|ACCURACY|DATE|BIN_ID\n\nExample: USR1234|Organic|5.0kg|2.0kg|92%|2025-09-07|BIN001");
+            if (manualData && manualData.trim()) {
+                processScannedData(manualData.trim());
+            }
+        }
+
+        // 🚀 QR Image Upload Function
+        function uploadQRImage() {
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = 'image/*';
+            input.onchange = function(event) {
+                const file = event.target.files[0];
+                if (file) {
+                    app.showToast('Processing uploaded image...', 'success');
+
+                    // Use Html5Qrcode for file scanning
+                    const html5QrCodeFile = new Html5Qrcode("qr-reader");
+
+                    html5QrCodeFile.scanFile(file, true)
+                        .then(decodedText => {
+                            processScannedData(decodedText);
+                            app.showToast('QR code detected from image!');
+                        })
+                        .catch(error => {
+                            console.error('QR scan from file failed:', error);
+                            app.showToast('Could not detect QR code from image. Try manual input.', 'error');
+                        });
+                }
+            };
+            input.click();
+        }
+
+        // Process Scanned Data
+        function processScannedData(qrData) {
+            const wasteData = app.processQRData(qrData);
+
+            if (!wasteData) {
+                app.showToast('Invalid QR code format. Expected: USER_ID|WASTE_TYPE|WEIGHT|COMPOST|ACCURACY|DATE|BIN_ID', 'error');
+                return;
+            }
+
+            currentWasteData = wasteData;
+
+            // Populate form
+            document.getElementById('userId').value = wasteData.userId;
+            document.getElementById('wasteType').value = wasteData.wasteType;
+            document.getElementById('weight').value = wasteData.weight;
+            document.getElementById('compostYield').value = wasteData.compostYield;
+            document.getElementById('accuracy').value = wasteData.accuracy;
+            document.getElementById('binId').value = wasteData.binId;
+
+            // Calculate credits
+            const credits = app.calculateCredits(wasteData);
+            document.getElementById('creditsAmount').textContent = credits;
+
+            // Show form
+            document.getElementById('scannerSection').style.display = 'none';
+            document.getElementById('dataForm').style.display = 'block';
+
+            app.showToast('QR Code processed successfully!');
+        }
+
+        // Process waste collection
+        document.getElementById('wasteForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+
+            if (!currentWasteData) {
+                app.showToast('No waste data to process', 'error');
+                return;
+            }
+
+            // Show processing indicator
+            const submitBtn = document.querySelector('#wasteForm button[type="submit"]');
+            const originalText = submitBtn.innerHTML;
+            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing...';
+            submitBtn.disabled = true;
+
+            try {
+                const credits = app.calculateCredits(currentWasteData);
+                const result = await app.addTransaction(currentWasteData.userId, currentWasteData, credits);
+
+                if (result.success) {
+                    // Store success data for success page
+                    localStorage.setItem('lastTransaction', JSON.stringify({
+                        ...result.transaction,
+                        userName: result.user.name,
+                        newBalance: result.user.credits
+                    }));
+
+                    app.showToast(result.message);
+
+                    setTimeout(() => {
+                        window.location.href = 'success.html';
+                    }, 1500);
+                } else {
+                    app.showToast(result.message, 'error');
+                }
+            } catch (error) {
+                console.error('Processing error:', error);
+                app.showToast('Processing failed: ' + error.message, 'error');
+            }
+
+            // Reset button
+            submitBtn.innerHTML = originalText;
+            submitBtn.disabled = false;
+        });
+
+        // Reset Scanner
+        function resetScanner() {
+            // Stop camera if running
+            if (isScanning) {
+                stopCamera();
+            }
+
+            document.getElementById('scannerSection').style.display = 'block';
+            document.getElementById('dataForm').style.display = 'none';
+            currentWasteData = null;
+        }
+
+        // Cleanup on page unload
+        window.addEventListener('beforeunload', function() {
+            if (isScanning && html5QrCode) {
+                html5QrCode.stop().catch(console.error);
+            }
+        });
+    </script>
 
     <style>
         .demo-qr-grid {
@@ -324,13 +418,15 @@
         }
 
         #qr-reader {
-            max-width: 400px;
-            margin: 0 auto;
+            background: rgba(255, 255, 255, 0.05);
+            border: 2px solid rgba(255, 255, 255, 0.2);
         }
 
+        /* Hide the default file upload UI from html5-qrcode */
         #qr-reader__dashboard_section_csr {
             display: none !important;
         }
     </style>
 </body>
 </html>
+
