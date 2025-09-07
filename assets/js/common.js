@@ -14,10 +14,111 @@ class EcoSmartApp {
         this.firebaseReady = false;
         this.connectionMonitorInterval = null;
         this.lastConnectionCheck = Date.now();
+        this.deferredPrompt = null;
+
+        // Register PWA Service Worker FIRST
+        this.registerServiceWorker();
+
+        // Setup PWA install prompt
+        this.setupPWAInstall();
+
+        // Then initialize Firebase
         this.initFirebase();
         this.init();
     }
 
+    // 🚀 PWA Service Worker Registration
+    async registerServiceWorker() {
+        if ('serviceWorker' in navigator) {
+            try {
+                const registration = await navigator.serviceWorker.register('/sw.js');
+                console.log('🚀 EcoSmart PWA: Service Worker registered successfully');
+
+                // Listen for updates
+                registration.addEventListener('updatefound', () => {
+                    const newWorker = registration.installing;
+                    newWorker.addEventListener('statechange', () => {
+                        if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                            this.showUpdateAvailable();
+                        }
+                    });
+                });
+            } catch (error) {
+                console.error('❌ EcoSmart PWA: Service Worker registration failed:', error);
+            }
+        }
+    }
+
+    // 🚀 PWA Install Prompt Setup
+    setupPWAInstall() {
+        window.addEventListener('beforeinstallprompt', (e) => {
+            e.preventDefault();
+            this.deferredPrompt = e;
+            this.showInstallButton();
+        });
+    }
+
+    showInstallButton() {
+        // Remove existing install button
+        const existing = document.getElementById('pwa-install-btn');
+        if (existing) existing.remove();
+
+        const installBtn = document.createElement('button');
+        installBtn.id = 'pwa-install-btn';
+        installBtn.innerHTML = '📱 Install App';
+        installBtn.className = 'btn';
+        installBtn.style.cssText = `
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            z-index: 10000;
+            animation: pulse 2s infinite;
+            background: linear-gradient(135deg, #00ff87, #60efff);
+            color: #000;
+            border: none;
+        `;
+
+        installBtn.addEventListener('click', async () => {
+            if (this.deferredPrompt) {
+                this.deferredPrompt.prompt();
+                const { outcome } = await this.deferredPrompt.userChoice;
+                console.log('PWA Install prompt:', outcome);
+                this.deferredPrompt = null;
+                installBtn.remove();
+
+                if (outcome === 'accepted') {
+                    this.showToast('App installed successfully! 📱');
+                }
+            }
+        });
+
+        document.body.appendChild(installBtn);
+    }
+
+    showUpdateAvailable() {
+        const updateBanner = document.createElement('div');
+        updateBanner.style.cssText = `
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            padding: 1rem;
+            text-align: center;
+            z-index: 10001;
+            font-weight: 600;
+        `;
+        updateBanner.innerHTML = `
+            🔄 New version available!
+            <button onclick="location.reload()" style="background: white; color: #764ba2; border: none; padding: 0.5rem 1rem; border-radius: 5px; margin-left: 1rem; cursor: pointer;">
+                Update Now
+            </button>
+        `;
+        document.body.appendChild(updateBanner);
+    }
+
+    // 🔥 Firebase Initialization
     async initFirebase() {
         try {
             console.log("🔥 Initializing Firebase...");
@@ -32,7 +133,6 @@ class EcoSmartApp {
             this.dbOnValue = onValue;
             this.serverTimestamp = serverTimestamp;
 
-            // Simple connection test without problematic .info path
             await this.simpleConnectionTest();
 
             console.log("🔥 Firebase initialized successfully!");
@@ -45,7 +145,6 @@ class EcoSmartApp {
             this.firebaseReady = false;
             this.showFirebaseStatus(false);
 
-            // Retry initialization after 3 seconds
             setTimeout(() => {
                 console.log("🔥 Retrying Firebase initialization...");
                 this.initFirebase();
@@ -55,15 +154,12 @@ class EcoSmartApp {
 
     async simpleConnectionTest() {
         try {
-            // Test with a simple path instead of .info/serverTimeOffset
             const testRef = this.dbRef(this.database, 'connectionTest');
             await this.dbSet(testRef, {
                 timestamp: Date.now(),
                 test: "connection"
             });
             console.log("🔥 Firebase connection test successful");
-
-            // Clean up test data
             await this.dbSet(testRef, null);
             return true;
         } catch (error) {
@@ -73,12 +169,10 @@ class EcoSmartApp {
     }
 
     startConnectionMonitoring() {
-        // Clear any existing monitor
         if (this.connectionMonitorInterval) {
             clearInterval(this.connectionMonitorInterval);
         }
 
-        // Monitor connection health every 30 seconds
         this.connectionMonitorInterval = setInterval(() => {
             if (this.firebaseReady) {
                 this.checkConnectionHealth();
@@ -90,10 +184,9 @@ class EcoSmartApp {
 
     async checkConnectionHealth() {
         try {
-            // Simple health check without .info path
             const healthRef = this.dbRef(this.database, 'healthCheck');
             await this.dbSet(healthRef, Date.now());
-            await this.dbSet(healthRef, null); // Clean up
+            await this.dbSet(healthRef, null);
             console.log("🔥 Firebase connection healthy");
         } catch (error) {
             console.warn("🔥 Connection health check failed:", error);
@@ -106,7 +199,6 @@ class EcoSmartApp {
         this.firebaseReady = false;
         this.showFirebaseStatus(false);
 
-        // Wait 2 seconds before reconnecting
         setTimeout(() => {
             this.initFirebase();
         }, 2000);
@@ -145,7 +237,6 @@ class EcoSmartApp {
             this.animateElements();
         });
 
-        // Handle page visibility changes
         document.addEventListener('visibilitychange', () => {
             if (document.hidden) {
                 console.log("🔥 Page hidden");
@@ -335,7 +426,6 @@ class EcoSmartApp {
             userData.history.unshift(transaction);
             userData.lastUpdated = new Date().toISOString();
 
-            // Write to Firebase with timeout
             const writePromise = this.dbSet(userRef, userData);
             const timeoutPromise = new Promise((_, reject) => {
                 setTimeout(() => reject(new Error('Write timeout')), 10000);
@@ -344,8 +434,6 @@ class EcoSmartApp {
             await Promise.race([writePromise, timeoutPromise]);
 
             console.log(`🔥 Successfully synced ${credits} credits to Firebase for ${userId}`);
-
-            // Also save locally as backup
             localStorage.setItem('userData_' + userId, JSON.stringify(userData));
 
             return {
@@ -406,8 +494,6 @@ class EcoSmartApp {
             }
 
             const userRef = this.dbRef(this.database, 'users/' + userId);
-
-            // Add timeout to prevent hanging
             const dataPromise = this.dbGet(userRef);
             const timeoutPromise = new Promise((_, reject) => {
                 setTimeout(() => reject(new Error('Read timeout')), 8000);
@@ -417,12 +503,10 @@ class EcoSmartApp {
             const firebaseData = snapshot.val();
 
             if (firebaseData) {
-                // Also cache locally
                 localStorage.setItem('userData_' + userId, JSON.stringify(firebaseData));
                 return firebaseData;
             }
 
-            // Fallback to local if no Firebase data
             return this.getUserDataLocal(userId);
 
         } catch (error) {
@@ -443,7 +527,6 @@ class EcoSmartApp {
         return userData || null;
     }
 
-    // Enhanced Real-Time Listener
     listenToUserUpdates(userId, callback) {
         console.log("🔥 Setting up real-time listener for:", userId);
 
@@ -454,7 +537,6 @@ class EcoSmartApp {
 
         const userRef = this.dbRef(this.database, 'users/' + userId);
 
-        // Setup Firebase listener with error handling
         const unsubscribe = this.dbOnValue(userRef,
             (snapshot) => {
                 const userData = snapshot.val();
@@ -463,9 +545,7 @@ class EcoSmartApp {
                     console.log("🔥 Real-time update received for", userId, "at", new Date().toLocaleTimeString());
                     console.log("Credits:", userData.credits, "| Transactions:", userData.history?.length || 0);
 
-                    // Cache locally
                     localStorage.setItem('userData_' + userId, JSON.stringify(userData));
-
                     callback(userData);
                     this.showLiveUpdateNotification();
                 }
@@ -473,13 +553,10 @@ class EcoSmartApp {
             (error) => {
                 console.error("🔥 Firebase listener error:", error);
                 this.showToast("Real-time connection lost, switching to polling mode", 'error');
-
-                // Fallback to polling
                 return this.setupPollingListener(userId, callback);
             }
         );
 
-        // Return cleanup function
         return () => {
             if (unsubscribe) unsubscribe();
         };
@@ -494,7 +571,6 @@ class EcoSmartApp {
             try {
                 const userData = await this.getUserData(userId);
                 if (userData) {
-                    // Only trigger callback if credits changed
                     if (lastKnownCredits !== userData.credits) {
                         console.log("🔥 Polling detected change for", userId, "- Credits:", userData.credits);
                         lastKnownCredits = userData.credits;
@@ -505,13 +581,12 @@ class EcoSmartApp {
             } catch (error) {
                 console.error("🔥 Polling error:", error);
             }
-        }, 5000); // Poll every 5 seconds
+        }, 5000);
 
         return () => clearInterval(pollInterval);
     }
 
     showLiveUpdateNotification() {
-        // Remove existing notification
         const existing = document.querySelector('.live-update-notification');
         if (existing) existing.remove();
 

@@ -1,12 +1,26 @@
 {
-  "name": "EcoSmart Dustbin",
+  "name": "EcoSmart Dustbin - Smart Waste Management",
   "short_name": "EcoSmart",
-  "description": "Smart Waste Management System with Real-time Rewards",
+  "description": "Smart waste management system with real-time rewards",
   "start_url": "/",
+  "scope": "/",
   "display": "standalone",
+  "orientation": "portrait-primary",
   "background_color": "#667eea",
   "theme_color": "#764ba2",
-  "orientation": "portrait",
-  "icons": [],
-  "categories": ["environment", "utilities", "productivity"]
+  "lang": "en",
+  "icons": [
+    {
+      "src": "/assets/images/icon-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/assets/images/icon-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
 }
