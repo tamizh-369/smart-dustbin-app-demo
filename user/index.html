@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>User Portal - EcoSmart Dustbin</title>
+    <link rel="stylesheet" href="../assets/css/style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body>
+    <div class="stars"></div>
+    <div class="container">
+        <header class="glass-card header">
+            <div class="logo">
+                <i class="fas fa-wallet"></i>
+                <h1>User Portal</h1>
+            </div>
+            <div class="subtitle">Track Credits • View History • Earn Rewards</div>
+        </header>
+
+        <main class="main-content">
+            <div class="glass-card">
+                <h2>User Login</h2>
+                <p style="margin-bottom: 2rem; color: rgba(255, 255, 255, 0.8);">
+                    Enter your User ID to access your eco-credits dashboard
+                </p>
+
+                <form id="userLoginForm">
+                    <div class="form-group">
+                        <label for="userId">User ID</label>
+                        <input type="text" id="userId" class="form-input"
+                               placeholder="Enter your User ID (e.g., USR1234)" required>
+                    </div>
+
+                    <button type="submit" class="btn">
+                        <i class="fas fa-sign-in-alt"></i>
+                        Access Dashboard
+                    </button>
+                </form>
+
+                <div style="margin-top: 2rem; padding-top: 2rem; border-top: 1px solid rgba(255, 255, 255, 0.1);">
+                    <h4 style="margin-bottom: 1rem; color: rgba(255, 255, 255, 0.9);">Demo User IDs:</h4>
+                    <div style="display: flex; gap: 1rem; flex-wrap: wrap;">
+                        <span class="demo-id" onclick="document.getElementById('userId').value = 'USR1234'">USR1234</span>
+                        <span class="demo-id" onclick="document.getElementById('userId').value = 'USR5678'">USR5678</span>
+                        <span class="demo-id" onclick="document.getElementById('userId').value = 'USR9101'">USR9101</span>
+                    </div>
+                </div>
+
+                <div style="text-align: center; margin-top: 2rem;">
+                    <a href="../" class="btn btn-secondary">
+                        <i class="fas fa-arrow-left"></i>
+                        Back to Home
+                    </a>
+                </div>
+            </div>
+
+            <div class="glass-card" style="margin-top: 2rem;">
+                <h3>How It Works</h3>
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1.5rem; margin-top: 1.5rem;">
+                    <div style="text-align: center;">
+                        <i class="fas fa-recycle" style="font-size: 2rem; color: #00ff87; margin-bottom: 1rem;"></i>
+                        <h4>Segregate Waste</h4>
+                        <p style="color: rgba(255, 255, 255, 0.8); font-size: 0.9rem;">
+                            Properly separate your waste into organic, plastic, paper, etc.
+                        </p>
+                    </div>
+                    <div style="text-align: center;">
+                        <i class="fas fa-qrcode" style="font-size: 2rem; color: #60efff; margin-bottom: 1rem;"></i>
+                        <h4>Smart Detection</h4>
+                        <p style="color: rgba(255, 255, 255, 0.8); font-size: 0.9rem;">
+                            Our AI-powered dustbin analyzes and generates QR codes
+                        </p>
+                    </div>
+                    <div style="text-align: center;">
+                        <i class="fas fa-coins" style="font-size: 2rem; color: #ffd700; margin-bottom: 1rem;"></i>
+                        <h4>Earn Credits</h4>
+                        <p style="color: rgba(255, 255, 255, 0.8); font-size: 0.9rem;">
+                            Get rewarded with eco-credits that convert to real money
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script src="../assets/js/common.js"></script>
+    <script>
+        document.getElementById('userLoginForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+
+            const userId = document.getElementById('userId').value.trim().toUpperCase();
+            const result = app.loginUser(userId, 'user');
+
+            if (result.success) {
+                app.showToast(`Welcome ${result.user.name}!`);
+                setTimeout(() => {
+                    window.location.href = 'dashboard.html';
+                }, 1000);
+            } else {
+                app.showToast('Invalid User ID. Please try again.', 'error');
+            }
+        });
+    </script>
+
+    <style>
+        .demo-id {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 0.5rem 1rem;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .demo-id:hover {
+            background: rgba(255, 255, 255, 0.2);
+            transform: translateY(-2px);
+        }
+    </style>
+</body>
+</html>

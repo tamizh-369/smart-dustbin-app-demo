@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Worker Portal - EcoSmart Dustbin</title>
+    <link rel="stylesheet" href="../assets/css/style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body>
+    <div class="stars"></div>
+    <div class="container">
+        <header class="glass-card header">
+            <div class="logo">
+                <i class="fas fa-qrcode"></i>
+                <h1>Worker Portal</h1>
+            </div>
+            <div class="subtitle">Scan QR • Process Waste • Earn Together</div>
+        </header>
+
+        <main class="main-content">
+            <div class="glass-card">
+                <h2>Worker Login</h2>
+                <p style="margin-bottom: 2rem; color: rgba(255, 255, 255, 0.8);">
+                    Enter your Worker ID to access the scanning portal
+                </p>
+
+                <form id="workerLoginForm">
+                    <div class="form-group">
+                        <label for="workerId">Worker ID</label>
+                        <input type="text" id="workerId" class="form-input"
+                               placeholder="Enter your Worker ID (e.g., WRK001)" required>
+                    </div>
+
+                    <button type="submit" class="btn">
+                        <i class="fas fa-sign-in-alt"></i>
+                        Login to Portal
+                    </button>
+                </form>
+
+                <div style="margin-top: 2rem; padding-top: 2rem; border-top: 1px solid rgba(255, 255, 255, 0.1);">
+                    <h4 style="margin-bottom: 1rem; color: rgba(255, 255, 255, 0.9);">Demo Worker IDs:</h4>
+                    <div style="display: flex; gap: 1rem; flex-wrap: wrap;">
+                        <span class="demo-id" onclick="document.getElementById('workerId').value = 'WRK001'">WRK001</span>
+                        <span class="demo-id" onclick="document.getElementById('workerId').value = 'WRK002'">WRK002</span>
+                        <span class="demo-id" onclick="document.getElementById('workerId').value = 'WRK003'">WRK003</span>
+                    </div>
+                </div>
+
+                <div style="text-align: center; margin-top: 2rem;">
+                    <a href="../" class="btn btn-secondary">
+                        <i class="fas fa-arrow-left"></i>
+                        Back to Home
+                    </a>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script src="../assets/js/common.js"></script>
+    <script>
+        document.getElementById('workerLoginForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+
+            const workerId = document.getElementById('workerId').value.trim().toUpperCase();
+            const result = app.loginUser(workerId, 'worker');
+
+            if (result.success) {
+                app.showToast(`Welcome ${result.user.name}!`);
+                setTimeout(() => {
+                    window.location.href = 'scanner.html';
+                }, 1000);
+            } else {
+                app.showToast('Invalid Worker ID. Please try again.', 'error');
+            }
+        });
+    </script>
+
+    <style>
+        .demo-id {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 0.5rem 1rem;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .demo-id:hover {
+            background: rgba(255, 255, 255, 0.2);
+            transform: translateY(-2px);
+        }
+    </style>
+</body>
+</html>

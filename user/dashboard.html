@@ -1,0 +1,512 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard - EcoSmart Dustbin</title>
+    <link rel="stylesheet" href="../assets/css/style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body>
+    <div class="stars"></div>
+    <div class="container">
+        <header class="glass-card header" id="userWelcome">
+            <!-- User welcome message will be loaded here by JavaScript -->
+            <div class="logo">
+                <i class="fas fa-user-circle"></i>
+                <h1>Loading...</h1>
+            </div>
+            <div class="subtitle">Please wait...</div>
+        </header>
+
+        <main class="main-content">
+            <div class="dashboard-grid">
+                <div class="glass-card dashboard-card">
+                    <div class="icon">
+                        <i class="fas fa-coins"></i>
+                    </div>
+                    <div class="value" id="totalCredits">0</div>
+                    <div class="label">Total Credits</div>
+                </div>
+
+                <div class="glass-card dashboard-card">
+                    <div class="icon">
+                        <i class="fas fa-money-bill-wave"></i>
+                    </div>
+                    <div class="value" id="cashValue">₹0.00</div>
+                    <div class="label">Cash Value</div>
+                </div>
+
+                <div class="glass-card dashboard-card">
+                    <div class="icon">
+                        <i class="fas fa-recycle"></i>
+                    </div>
+                    <div class="value" id="totalTransactions">0</div>
+                    <div class="label">Collections</div>
+                </div>
+
+                <div class="glass-card dashboard-card">
+                    <div class="icon">
+                        <i class="fas fa-leaf"></i>
+                    </div>
+                    <div class="value" id="ecoImpact">0 kg</div>
+                    <div class="label">Waste Processed</div>
+                </div>
+            </div>
+
+            <div class="glass-card">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
+                    <h3>Transaction History</h3>
+                    <button class="btn btn-secondary" onclick="refreshData()">
+                        <i class="fas fa-sync-alt"></i>
+                        Refresh
+                    </button>
+                </div>
+
+                <div id="transactionHistory">
+                    <!-- Transaction history will be loaded here -->
+                    <div style="text-align: center; padding: 2rem; color: rgba(255, 255, 255, 0.6);">
+                        <i class="fas fa-spinner fa-spin" style="font-size: 2rem; margin-bottom: 1rem;"></i>
+                        <p>Loading transaction history...</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="glass-card" style="text-align: center;">
+                <h3>Redeem Credits</h3>
+                <p style="color: rgba(255, 255, 255, 0.8); margin-bottom: 2rem;">
+                    Convert your eco-credits to cash rewards
+                </p>
+
+                <div style="display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap;">
+                    <button class="btn" onclick="redeemCredits()">
+                        <i class="fas fa-exchange-alt"></i>
+                        Redeem All Credits
+                    </button>
+                    <button class="btn btn-secondary" onclick="shareAchievement()">
+                        <i class="fas fa-share-alt"></i>
+                        Share Achievement
+                    </button>
+                </div>
+            </div>
+
+            <div style="text-align: center; margin-top: 2rem;">
+                <a href="../" class="btn btn-secondary">
+                    <i class="fas fa-home"></i>
+                    Back to Home
+                </a>
+            </div>
+        </main>
+    </div>
+
+    <script src="../assets/js/common.js"></script>
+    <script>
+        let currentUserData = null;
+        let unsubscribe = null;
+        let autoRefreshInterval = null;
+        let lastKnownCredits = 0;
+
+        window.addEventListener('load', function() {
+            const currentUser = app.getCurrentUser();
+            if (!currentUser || currentUser.type !== 'user') {
+                window.location.href = 'index.html';
+                return;
+            }
+
+            loadUserDashboard(currentUser.id);
+        });
+
+        function loadUserDashboard(userId) {
+            console.log("🔥 Loading dashboard for user:", userId);
+
+            // Set up enhanced real-time listener
+            unsubscribe = app.listenToUserUpdates(userId, (userData) => {
+                console.log("🔥 Dashboard received update:", userData.credits, "credits");
+                currentUserData = userData;
+                updateDashboardUI(userData);
+            });
+
+            // Initial data load
+            app.getUserData(userId).then(userData => {
+                console.log("🔥 Initial dashboard data:", userData);
+                if (userData) {
+                    currentUserData = userData;
+                    lastKnownCredits = userData.credits || 0;
+                    updateDashboardUI(userData);
+                }
+            });
+
+            // Setup auto-refresh safety net
+            setupAutoRefresh(userId);
+
+            // Add debug controls
+            addDebugControls(userId);
+        }
+
+        function setupAutoRefresh(userId) {
+            // Clear any existing interval
+            if (autoRefreshInterval) {
+                clearInterval(autoRefreshInterval);
+            }
+
+            // Auto-refresh every 8 seconds as safety net
+            autoRefreshInterval = setInterval(async () => {
+                if (document.hidden) return; // Don't refresh when tab is hidden
+
+                try {
+                    console.log("🔥 Auto-refresh check...");
+                    const userData = await app.getUserData(userId);
+
+                    if (userData && userData.credits !== lastKnownCredits) {
+                        console.log(`🔥 Auto-refresh detected change! ${lastKnownCredits} → ${userData.credits}`);
+                        lastKnownCredits = userData.credits;
+                        currentUserData = userData;
+                        updateDashboardUI(userData);
+
+                        // Show auto-refresh notification
+                        showAutoRefreshNotification();
+                    }
+                } catch (error) {
+                    console.error("🔥 Auto-refresh failed:", error);
+                }
+            }, 8000); // Check every 8 seconds
+        }
+
+        function showAutoRefreshNotification() {
+            // Remove existing notification
+            const existing = document.querySelector('.auto-refresh-notification');
+            if (existing) existing.remove();
+
+            const notification = document.createElement('div');
+            notification.className = 'auto-refresh-notification';
+            notification.style.cssText = `
+                position: fixed;
+                top: 120px;
+                right: 20px;
+                z-index: 10000;
+                background: linear-gradient(135deg, #667eea, #764ba2);
+                color: white;
+                padding: 1rem;
+                border-radius: 10px;
+                border: 1px solid rgba(255, 255, 255, 0.3);
+                animation: slideIn 0.5s ease;
+                box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+            `;
+            notification.innerHTML = '🔄 Auto-refresh detected update!';
+            document.body.appendChild(notification);
+
+            setTimeout(() => notification.remove(), 3000);
+        }
+
+        function addDebugControls(userId) {
+            // Add debug panel
+            const debugPanel = document.createElement('div');
+            debugPanel.id = 'debugPanel';
+            debugPanel.style.cssText = `
+                position: fixed;
+                bottom: 20px;
+                right: 20px;
+                background: rgba(0, 0, 0, 0.8);
+                color: white;
+                padding: 1rem;
+                border-radius: 10px;
+                z-index: 10000;
+                font-size: 0.8rem;
+                max-width: 300px;
+            `;
+
+            debugPanel.innerHTML = `
+                <div style="margin-bottom: 1rem;">
+                    <strong>🔧 Debug Controls</strong>
+                </div>
+                <button onclick="testConnection()" style="background: #00ff87; color: #000; border: none; padding: 0.5rem 1rem; border-radius: 5px; margin: 2px; cursor: pointer; font-size: 0.8rem;">
+                    Test Connection
+                </button>
+                <button onclick="forceRefresh()" style="background: #60efff; color: #000; border: none; padding: 0.5rem 1rem; border-radius: 5px; margin: 2px; cursor: pointer; font-size: 0.8rem;">
+                    Force Refresh
+                </button>
+                <button onclick="toggleDebugPanel()" style="background: #ff6b6b; color: white; border: none; padding: 0.5rem 1rem; border-radius: 5px; margin: 2px; cursor: pointer; font-size: 0.8rem;">
+                    Hide Debug
+                </button>
+                <div id="debugInfo" style="margin-top: 0.5rem; font-size: 0.7rem; color: #ccc;">
+                    Loading...
+                </div>
+            `;
+
+            document.body.appendChild(debugPanel);
+
+            // Update debug info every 3 seconds
+            setInterval(() => {
+                const debugInfo = document.getElementById('debugInfo');
+                if (debugInfo) {
+                    debugInfo.innerHTML = `
+                        Firebase: ${app.firebaseReady ? '🔥 Active' : '❌ Offline'}<br>
+                        Credits: ${currentUserData?.credits || 0}<br>
+                        Last Update: ${new Date().toLocaleTimeString()}<br>
+                        Transactions: ${currentUserData?.history?.length || 0}
+                    `;
+                }
+            }, 3000);
+        }
+
+        function updateDashboardUI(userData) {
+            // Safely check if elements exist before updating
+            const userWelcomeElement = document.getElementById('userWelcome');
+            if (userWelcomeElement) {
+                userWelcomeElement.innerHTML = `
+                    <div class="logo">
+                        <i class="fas fa-user-circle"></i>
+                        <h1>Welcome, ${userData.name}</h1>
+                    </div>
+                    <div class="subtitle">
+                        User ID: ${userData.id} | ${userData.address || 'Smart Home User'}
+                        ${app.firebaseReady ? '<span style="color: #00ff87; font-weight: bold;">🔥 LIVE</span>' : '<span style="color: #feca57; font-weight: bold;">💾 AUTO-SYNC</span>'}
+                    </div>
+                `;
+            }
+
+            // Update dashboard cards with enhanced animation
+            const totalWeight = calculateTotalWeight(userData.history || []);
+            animateValueWithGlow('totalCredits', userData.credits || 0);
+
+            const cashValueElement = document.getElementById('cashValue');
+            if (cashValueElement) {
+                cashValueElement.textContent = app.formatCurrency(userData.credits || 0);
+            }
+
+            const totalTransactionsElement = document.getElementById('totalTransactions');
+            if (totalTransactionsElement) {
+                totalTransactionsElement.textContent = (userData.history || []).length;
+            }
+
+            const ecoImpactElement = document.getElementById('ecoImpact');
+            if (ecoImpactElement) {
+                ecoImpactElement.textContent = totalWeight;
+            }
+
+            // Update transaction history
+            loadTransactionHistory(userData.history || []);
+
+            // Update last known credits
+            lastKnownCredits = userData.credits || 0;
+        }
+
+        function animateValueWithGlow(elementId, newValue) {
+            const element = document.getElementById(elementId);
+            if (!element) return; // Safety check
+
+            const currentValue = parseInt(element.textContent) || 0;
+
+            if (newValue > currentValue) {
+                console.log(`🔥 Animating credit increase: ${currentValue} → ${newValue}`);
+
+                // Enhanced glow animation
+                element.style.transform = 'scale(1.4)';
+                element.style.color = '#00ff87';
+                element.style.textShadow = '0 0 30px #00ff87, 0 0 60px #00ff87';
+                element.style.transition = 'all 0.3s ease';
+
+                // Animate number increase
+                let current = currentValue;
+                const increment = Math.max(1, Math.ceil((newValue - currentValue) / 15));
+
+                const timer = setInterval(() => {
+                    current += increment;
+                    if (current >= newValue) {
+                        current = newValue;
+                        clearInterval(timer);
+
+                        // Reset animation after 3 seconds
+                        setTimeout(() => {
+                            element.style.transform = 'scale(1)';
+                            element.style.color = '#ffffff';
+                            element.style.textShadow = 'none';
+                        }, 3000);
+                    }
+                    element.textContent = current;
+                }, 80);
+            } else {
+                element.textContent = newValue;
+            }
+        }
+
+        function calculateTotalWeight(history) {
+            const total = history.reduce((sum, transaction) => {
+                const weight = parseFloat(transaction.weight.replace('kg', '')) || 0;
+                return sum + weight;
+            }, 0);
+            return total.toFixed(1) + ' kg';
+        }
+
+        function loadTransactionHistory(history) {
+            const historyDiv = document.getElementById('transactionHistory');
+            if (!historyDiv) return; // Safety check
+
+            if (history.length === 0) {
+                historyDiv.innerHTML = `
+                    <div style="text-align: center; padding: 3rem; color: rgba(255, 255, 255, 0.6);">
+                        <i class="fas fa-history" style="font-size: 3rem; margin-bottom: 1rem;"></i>
+                        <h4>No Transactions Yet</h4>
+                        <p>Start segregating waste to see your transaction history!</p>
+                    </div>
+                `;
+                return;
+            }
+
+            const transactionsHTML = history.slice(0, 10).map((transaction, index) => `
+                <div class="transaction-item" style="animation: slideIn 0.5s ease ${index * 0.1}s both;">
+                    <div class="transaction-details">
+                        <h4>${transaction.wasteType} Waste</h4>
+                        <p>
+                            ${transaction.weight} • ${transaction.accuracy} accuracy
+                            ${transaction.compostYield !== '--' ? '• ' + transaction.compostYield + ' compost' : ''}
+                        </p>
+                        <p style="font-size: 0.8rem; color: rgba(255, 255, 255, 0.5);">
+                            ${transaction.timestamp} • ${transaction.binId}
+                        </p>
+                    </div>
+                    <div class="transaction-amount" style="color: #00ff87;">
+                        +${transaction.credits}
+                    </div>
+                </div>
+            `).join('');
+
+            historyDiv.innerHTML = transactionsHTML;
+        }
+
+        // Debug Functions
+        async function testConnection() {
+            console.log("🔥 Testing Firebase connection...");
+            app.showToast("Testing connection...");
+
+            try {
+                const isReady = app.firebaseReady;
+
+                app.showToast(`Connection test: ${isReady ? 'PASS' : 'FAIL'} | Firebase: ${isReady ? 'OK' : 'OFFLINE'}`);
+            } catch (error) {
+                app.showToast("Connection test failed: " + error.message, 'error');
+            }
+        }
+
+        async function forceRefresh() {
+            console.log("🔥 Force refreshing dashboard data...");
+            const currentUser = app.getCurrentUser();
+
+            if (currentUser) {
+                try {
+                    app.showToast("Refreshing data...");
+                    const userData = await app.getUserData(currentUser.id);
+
+                    if (userData) {
+                        currentUserData = userData;
+                        updateDashboardUI(userData);
+                        app.showToast("Dashboard refreshed successfully!");
+                    } else {
+                        app.showToast("No data found for user", 'error');
+                    }
+                } catch (error) {
+                    app.showToast("Refresh failed: " + error.message, 'error');
+                }
+            }
+        }
+
+        function toggleDebugPanel() {
+            const panel = document.getElementById('debugPanel');
+            if (panel) {
+                panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+            }
+        }
+
+        // Refresh function (for existing button)
+        function refreshData() {
+            forceRefresh();
+        }
+
+        function redeemCredits() {
+            if (!currentUserData || currentUserData.credits === 0) {
+                app.showToast('No credits available to redeem', 'error');
+                return;
+            }
+
+            const cashValue = app.formatCurrency(currentUserData.credits);
+            const confirmed = confirm(`Redeem ${currentUserData.credits} credits for ${cashValue}?`);
+
+            if (confirmed) {
+                app.showToast(`Congratulations! ${cashValue} will be credited to your account within 24 hours.`);
+            }
+        }
+
+        function shareAchievement() {
+            const message = `🌱 I've earned ${currentUserData?.credits || 0} eco-credits by properly segregating waste with EcoSmart Dustbin! Join the green revolution! 🌍 #EcoSmart #WasteManagement #SustainableLiving`;
+
+            if (navigator.share) {
+                navigator.share({
+                    title: 'My EcoSmart Achievement',
+                    text: message,
+                    url: window.location.origin
+                });
+            } else {
+                navigator.clipboard.writeText(message).then(() => {
+                    app.showToast('Achievement message copied to clipboard!');
+                });
+            }
+        }
+
+        // Cleanup on page unload
+        window.addEventListener('beforeunload', function() {
+            if (unsubscribe) {
+                unsubscribe();
+            }
+            if (autoRefreshInterval) {
+                clearInterval(autoRefreshInterval);
+            }
+        });
+    </script>
+
+    <style>
+    @keyframes slideIn {
+        from {
+            opacity: 0;
+            transform: translateX(-30px);
+        }
+        to {
+            opacity: 1;
+            transform: translateX(0);
+        }
+    }
+
+    .transaction-item {
+        transition: all 0.3s ease;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 1.5rem;
+        background: rgba(255, 255, 255, 0.05);
+        border-radius: 12px;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        margin-bottom: 1rem;
+    }
+
+    .transaction-item:hover {
+        background: rgba(255, 255, 255, 0.1);
+        transform: translateX(5px);
+    }
+
+    .transaction-details h4 {
+        margin-bottom: 0.5rem;
+        font-weight: 600;
+    }
+
+    .transaction-details p {
+        color: rgba(255, 255, 255, 0.7);
+        font-size: 0.9rem;
+    }
+
+    .transaction-amount {
+        font-size: 1.5rem;
+        font-weight: 700;
+    }
+    </style>
+</body>
+</html>
